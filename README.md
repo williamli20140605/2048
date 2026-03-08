@@ -23,6 +23,25 @@ python3 -m http.server 8080
 
 Then open `http://localhost:8080`.
 
+## Use on another machine
+
+Clone your fork and run locally:
+
+```bash
+git clone https://github.com/williamli20140605/2048.git
+cd 2048
+python3 -m http.server 8080
+```
+
+Then open `http://localhost:8080`.
+
+If you want to keep syncing updates from the original repo, add upstream once:
+
+```bash
+git remote add upstream https://github.com/gabrielecirulli/2048.git
+git fetch upstream
+```
+
 ## Upstream
 
 - Original project: https://github.com/gabrielecirulli/2048
