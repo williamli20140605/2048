@@ -17,6 +17,7 @@ function PixiActuator() {
     this.gridSpacing = 12 * this.boardScale; // ~12.19px
     this.tileSize = 108 * this.boardScale; // ~109.75px
     this.tileBorderRadius = 4;
+    this.moveDuration = 0.09;
 
     this.app = new PIXI.Application({
         view: document.getElementById('game-canvas'),
@@ -199,24 +200,25 @@ PixiActuator.prototype.addTile = function (tile) {
     sprite.y = pos.y + this.tileSize / 2;
 
     if (tile.mergedFrom) {
+        gsap.killTweensOf(sprite.scale);
+        sprite.scale.set(1, 1);
+
         // Pop animation (Q弹) - Scales up significantly then bounces back
-        gsap.fromTo(sprite.scale,
-            { x: 0.5, y: 0.5 },
-            {
-                x: 1.35,
-                y: 1.35,
-                duration: 0.1,
-                ease: "power2.out",
-                onComplete: () => {
-                    gsap.to(sprite.scale, {
-                        x: 1,
-                        y: 1,
-                        duration: 0.15,
-                        ease: "back.out(3)" // Highly elastic bounce back to normal size
-                    });
-                }
+        gsap.to(sprite.scale, {
+            x: 1.18,
+            y: 1.18,
+            duration: 0.09,
+            ease: "back.out(2.2)",
+            delay: this.moveDuration,
+            onComplete: () => {
+                gsap.to(sprite.scale, {
+                    x: 1,
+                    y: 1,
+                    duration: 0.08,
+                    ease: "power2.out"
+                });
             }
-        );
+        });
         sprite.zIndex = 20;
 
         // Add merged tiles to let them slide in, then remove
@@ -226,16 +228,25 @@ PixiActuator.prototype.addTile = function (tile) {
         });
     } else {
         // Appear animation (Q弹) - Springs into existence
-        gsap.fromTo(sprite.scale,
-            { x: 0, y: 0 },
-            {
-                x: 1,
-                y: 1,
-                duration: 0.25,
-                ease: "back.out(2.5)", // Strong overshoot and spring back
-                delay: 0.05
-            }
-        );
+        gsap.killTweensOf(sprite.scale);
+
+        var spawnDelay = tile.justSpawned ? this.moveDuration : 0;
+        tile.justSpawned = false;
+
+        sprite.visible = false;
+        gsap.delayedCall(spawnDelay, function () {
+            sprite.visible = true;
+            gsap.fromTo(sprite.scale,
+                { x: 0.78, y: 0.78 },
+                {
+                    x: 1,
+                    y: 1,
+                    duration: 0.13,
+                    ease: "back.out(1.8)",
+                    delay: 0
+                }
+            );
+        });
     }
 
     // Sort children to respect zIndex (Pixi v7 requires sortableChildren = true on container, we just change order)
@@ -258,11 +269,12 @@ PixiActuator.prototype.updateTilePosition = function (tile, removeAfter) {
     targetPos.y += this.tileSize / 2;
 
     if (sprite.x !== targetPos.x || sprite.y !== targetPos.y) {
+        gsap.killTweensOf(sprite);
         gsap.to(sprite, {
             x: targetPos.x,
             y: targetPos.y,
-            duration: 0.15, // Increase slightly for Q弹
-            ease: "back.out(1.5)", // Extreme elastic over-travel bounce per user request
+            duration: this.moveDuration,
+            ease: "power3.out",
             onComplete: () => {
                 if (removeAfter) {
                     this.tileContainer.removeChild(sprite);
@@ -280,17 +292,14 @@ PixiActuator.prototype.updateTilePosition = function (tile, removeAfter) {
 
 PixiActuator.prototype.updateScore = function (score) {
     this.clearContainerDOM(this.scoreContainer);
-
     var difference = score - this.score;
     this.score = score;
-
     this.scoreContainer.textContent = this.score;
 
     if (difference > 0) {
         var addition = document.createElement("div");
         addition.classList.add("score-addition");
         addition.textContent = "+" + difference;
-
         this.scoreContainer.appendChild(addition);
     }
 };
@@ -309,12 +318,8 @@ PixiActuator.prototype.message = function (won) {
     var type = won ? "game-won" : "game-over";
     var message = won ? "You win!" : "Game over!";
 
-    // Delay the Game Over trigger so the final animations can physically complete
-    // User noted 'death logic' issues; official site has a ~300-500ms delay.
-    setTimeout(() => {
-        this.messageContainer.classList.add(type);
-        this.messageContainer.getElementsByTagName("p")[0].textContent = message;
-    }, 400);
+    this.messageContainer.classList.add(type);
+    this.messageContainer.getElementsByTagName("p")[0].textContent = message;
 };
 
 PixiActuator.prototype.clearMessage = function () {

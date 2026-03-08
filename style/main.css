@@ -27,7 +27,7 @@ h1.title {
   float: left;
 }
 
-@-webkit-keyframes $animation-name {
+@-webkit-keyframes move-up {
   0% {
     top: 25px;
     opacity: 1;
@@ -37,7 +37,7 @@ h1.title {
     opacity: 0;
   }
 }
-@-moz-keyframes $animation-name {
+@-moz-keyframes move-up {
   0% {
     top: 25px;
     opacity: 1;
@@ -47,7 +47,7 @@ h1.title {
     opacity: 0;
   }
 }
-@keyframes $animation-name {
+@keyframes move-up {
   0% {
     top: 25px;
     opacity: 1;
@@ -144,7 +144,7 @@ hr {
   margin: 0 auto;
 }
 
-@-webkit-keyframes $animation-name {
+@-webkit-keyframes fade-in {
   0% {
     opacity: 0;
   }
@@ -152,7 +152,7 @@ hr {
     opacity: 1;
   }
 }
-@-moz-keyframes $animation-name {
+@-moz-keyframes fade-in {
   0% {
     opacity: 0;
   }
@@ -160,7 +160,7 @@ hr {
     opacity: 1;
   }
 }
-@keyframes $animation-name {
+@keyframes fade-in {
   0% {
     opacity: 0;
   }
