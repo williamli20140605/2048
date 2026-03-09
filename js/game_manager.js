@@ -9,10 +9,7 @@ function GameManager(size, InputManager, Actuator, StorageManager) {
     this.inputManager.on("move", this.move.bind(this));
     this.inputManager.on("restart", this.restart.bind(this));
     this.inputManager.on("keepPlaying", this.keepPlaying.bind(this));
-    this.inputManager.on("undo", this.undo.bind(this));
-    this.inputManager.on("clearTile", this.enableClearMode.bind(this));
 
-    this.history = []; // Track move history for Undo
     this.setup();
 }
 
@@ -28,46 +25,6 @@ GameManager.prototype.keepPlaying = function () {
     this.keepPlaying = true;
     this.actuator.continueGame(); // Clear the game won/lost message
 };
-
-// Undo the last move
-GameManager.prototype.undo = function () {
-    if (this.history.length === 0) return;
-
-    var previousState = this.history.pop();
-    this.grid = new Grid(previousState.grid.size, previousState.grid.cells);
-    this.score = previousState.score;
-    this.over = previousState.over;
-    this.won = previousState.won;
-    this.keepPlaying = previousState.keepPlaying;
-
-    this.actuator.clearContainer(); // Prevent ghost tiles from undone state
-    this.actuate();
-};
-
-// Clear a specific tile (Powerup)
-GameManager.prototype.removeTileAt = function (position) {
-    if (this.grid.cellContent(position)) {
-        // Save state before modification for Undo compatibility
-        this.history.push(this.serialize());
-        if (this.history.length > 5) this.history.shift();
-
-        this.grid.removeTile(this.grid.cellContent(position));
-        this.actuate();
-        return true;
-    }
-    return false;
-};
-
-// Enable "Selection Mode" for Clear Powerup
-GameManager.prototype.enableClearMode = function () {
-    var self = this;
-    // Tell actuator to highlight tiles and wait for click
-    this.actuator.setSelectionMode(true, function (position) {
-        self.removeTileAt(position);
-        self.actuator.setSelectionMode(false);
-    });
-};
-
 
 // Return true if the game is lost, or has won and the user hasn't kept playing
 GameManager.prototype.isGameTerminated = function () {
@@ -86,9 +43,7 @@ GameManager.prototype.setup = function () {
         this.over = previousState.over;
         this.won = previousState.won;
         this.keepPlaying = previousState.keepPlaying;
-        if (this.actuator.clearContainer) this.actuator.clearContainer();
     } else {
-        this.actuator.clearContainer(); // Prevent ghost tiles from undone state
         this.grid = new Grid(this.size);
         this.score = 0;
         this.over = false;
@@ -185,9 +140,6 @@ GameManager.prototype.move = function (direction) {
     var traversals = this.buildTraversals(vector);
     var moved = false;
 
-    // Save current state to history
-    var stateBefore = this.serialize();
-
     // Save the current tile positions and remove merger information
     this.prepareTiles();
 
@@ -229,10 +181,6 @@ GameManager.prototype.move = function (direction) {
     });
 
     if (moved) {
-        // Push state to history
-        this.history.push(stateBefore);
-        if (this.history.length > 5) this.history.shift();
-
         this.addRandomTile(false);
 
         if (!this.movesAvailable()) {
