@@ -4,6 +4,8 @@ function PixiActuator() {
     this.messageContainer = document.querySelector(".game-message");
 
     this.score = 0;
+    this.selectionMode = false;
+    this.selectionCallback = null;
 
     // Mathematics derived from play2048.co SVG Dump:
     // Viewbox: 576, Inner Board: 492
@@ -73,6 +75,59 @@ PixiActuator.prototype.actuate = function (grid, metadata) {
 
     });
 };
+
+// Selection Mode for Clear Powerup
+PixiActuator.prototype.setSelectionMode = function (enabled, callback) {
+    this.selectionMode = enabled;
+    this.selectionCallback = callback;
+
+    var clearButton = document.querySelector(".clear-button");
+    if (clearButton) {
+        if (enabled) {
+            clearButton.classList.add("active-mode");
+        } else {
+            clearButton.classList.remove("active-mode");
+        }
+    }
+
+    // Refresh tiles to update interactivity
+    this.refreshTilesInteractivity();
+};
+
+PixiActuator.prototype.refreshTilesInteractivity = function () {
+    var self = this;
+    this.tileContainer.children.forEach(function (tileSprite) {
+        if (self.selectionMode) {
+            tileSprite.interactive = true;
+            tileSprite.buttonMode = true;
+            tileSprite.cursor = 'pointer';
+
+            // Pulsing effect to show interactivity
+            gsap.to(tileSprite.scale, {
+                x: 1.05,
+                y: 1.05,
+                duration: 0.5,
+                repeat: -1,
+                yoyo: true,
+                ease: "sine.inOut"
+            });
+
+            tileSprite.off('pointerdown').on('pointerdown', function () {
+                if (self.selectionCallback && tileSprite.tileData) {
+                    self.selectionCallback({ x: tileSprite.tileData.x, y: tileSprite.tileData.y });
+                }
+            });
+        } else {
+            tileSprite.interactive = false;
+            tileSprite.buttonMode = false;
+            tileSprite.cursor = 'default';
+            gsap.killTweensOf(tileSprite.scale);
+            gsap.to(tileSprite.scale, { x: 1, y: 1, duration: 0.2 });
+            tileSprite.off('pointerdown');
+        }
+    });
+};
+
 
 // Continues the game (both restart and keep playing)
 PixiActuator.prototype.continueGame = function () {
@@ -191,6 +246,7 @@ PixiActuator.prototype.createTileSprite = function (tile) {
 
 PixiActuator.prototype.addTile = function (tile) {
     var sprite = this.createTileSprite(tile);
+    sprite.tileData = { x: tile.x, y: tile.y }; // Store tile coordinates for clear mode
     this.tiles.set(tile, sprite);
     this.tileContainer.addChild(sprite);
 
@@ -273,8 +329,8 @@ PixiActuator.prototype.updateTilePosition = function (tile, removeAfter) {
         gsap.to(sprite, {
             x: targetPos.x,
             y: targetPos.y,
-            duration: this.moveDuration,
-            ease: "power3.out",
+            duration: 0.09, // Optimized for snappiness per user request
+            ease: "back.out(1.5)", // Extreme elastic over-travel bounce per user request
             onComplete: () => {
                 if (removeAfter) {
                     this.tileContainer.removeChild(sprite);
