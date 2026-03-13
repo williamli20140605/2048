@@ -32,15 +32,9 @@ function PixiActuator() {
     // Performance Optimization: Prevent sub-pixel rendering jitter on moving tiles
     PIXI.settings.ROUND_PIXELS = true;
 
-    // Performance Optimization: Sync GSAP animation ticker precisely with the Pixi render loop
-    // This cures the "laggy" feeling reported by the user
-    this.app.ticker.stop();
-    gsap.ticker.add(() => {
-        this.app.ticker.update();
-    });
-
     // Create containers
     this.tileContainer = new PIXI.Container();
+    this.tileContainer.sortableChildren = true;
     this.app.stage.addChild(this.tileContainer);
 
     // Store active tile sprites mapped by object reference
@@ -50,28 +44,26 @@ function PixiActuator() {
 PixiActuator.prototype.actuate = function (grid, metadata) {
     var self = this;
 
-    window.requestAnimationFrame(function () {
-        // 1. Move existing tiles
-        grid.cells.forEach(function (column) {
-            column.forEach(function (cell) {
-                if (cell) {
-                    self.updateTilePosition(cell);
-                }
-            });
-        });
-
-        self.updateScore(metadata.score);
-        self.updateBestScore(metadata.bestScore);
-
-        if (metadata.terminated) {
-            if (metadata.over) {
-                self.message(false); // You lose
-            } else if (metadata.won) {
-                self.message(true); // You win!
+    // Render immediately to avoid stale tile references when multiple moves
+    // are processed before the next animation frame.
+    grid.cells.forEach(function (column) {
+        column.forEach(function (cell) {
+            if (cell) {
+                self.updateTilePosition(cell);
             }
-        }
-
+        });
     });
+
+    self.updateScore(metadata.score);
+    self.updateBestScore(metadata.bestScore);
+
+    if (metadata.terminated) {
+        if (metadata.over) {
+            self.message(false); // You lose
+        } else if (metadata.won) {
+            self.message(true); // You win!
+        }
+    }
 };
 
 // Continues the game (both restart and keep playing)
@@ -81,8 +73,24 @@ PixiActuator.prototype.continueGame = function () {
 };
 
 PixiActuator.prototype.clearContainer = function () {
+    this.tileContainer.children.forEach(function (child) {
+        gsap.killTweensOf(child);
+        gsap.killTweensOf(child.scale);
+    });
     this.tileContainer.removeChildren();
     this.tiles.clear();
+};
+
+PixiActuator.prototype.removeTileSprite = function (tile, sprite) {
+    gsap.killTweensOf(sprite);
+    gsap.killTweensOf(sprite.scale);
+
+    if (sprite.parent === this.tileContainer) {
+        this.tileContainer.removeChild(sprite);
+    }
+
+    sprite.destroy();
+    this.tiles.delete(tile);
 };
 
 PixiActuator.prototype.getPixelPosition = function (pos) {
@@ -249,8 +257,6 @@ PixiActuator.prototype.addTile = function (tile) {
         });
     }
 
-    // Sort children to respect zIndex (Pixi v7 requires sortableChildren = true on container, we just change order)
-    this.tileContainer.children.sort((itemA, itemB) => (itemA.zIndex || 0) - (itemB.zIndex || 0));
 };
 
 PixiActuator.prototype.updateTilePosition = function (tile, removeAfter) {
@@ -277,16 +283,12 @@ PixiActuator.prototype.updateTilePosition = function (tile, removeAfter) {
             ease: "power3.out",
             onComplete: () => {
                 if (removeAfter) {
-                    this.tileContainer.removeChild(sprite);
-                    sprite.destroy();
-                    this.tiles.delete(tile);
+                    this.removeTileSprite(tile, sprite);
                 }
             }
         });
     } else if (removeAfter) {
-        this.tileContainer.removeChild(sprite);
-        sprite.destroy();
-        this.tiles.delete(tile);
+        this.removeTileSprite(tile, sprite);
     }
 };
 
